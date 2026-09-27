@@ -1,6 +1,6 @@
 # İNADINA TV Müzik Çalar
 
-Yerel müzik koleksiyonunuzu tarayan, Türkçe arayüze sahip web tabanlı müzik çalar.
+Türkçe arayüze sahip; Türkçe ve Kürtçe müzik koleksiyonlarını birlikte tarayabilen web tabanlı müzik çalar.
 
 ## Özellikler
 
@@ -9,7 +9,8 @@ Yerel müzik koleksiyonunuzu tarayan, Türkçe arayüze sahip web tabanlı müzi
 - Çalma sırası, karışık çalma, tekrar ve indirme
 - Gömülü kapak ve şarkı sözü görüntüleme
 - Etiketleri (başlık, sanatçı, albüm, tür, yıl ve sözler) düzenleme
-- Deezer üzerinden Türkçe müzik metadata ve kapak arama
+- Türkçe ve Kürtçe sanatçı, albüm, parça ve klasör adlarında Unicode uyumlu arama
+- Deezer üzerinden Türkçe ve Kürtçe müzik metadata ve kapak arama
 - Telefon ve masaüstü ekranlarına uyumlu karanlık tasarım
 
 > Telifli müzik dosyaları projeye dahil edilmez. Uygulama, sizin cihazınızdaki/ sunucudaki müzik klasörlerini tarar. Deezer entegrasyonu yalnızca arama ve metadata içindir.
@@ -26,6 +27,13 @@ python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+## Yayın bağlantıları
+
+- GitHub Pages HTML: `https://inadinatv.github.io/INADINATV-MUZIK-CALAR/`
+- Vercel: Bu proje Flask API kullandığı için Vercel’e proje kökünden bağlanarak yayınlanabilir. `vercel.json` dosyası Python giriş noktası olarak `app.py` dosyasını tanımlar.
+
+GitHub Pages yalnızca statik HTML sunar; müzik klasörü tarama, streaming ve etiket düzenleme gibi API özellikleri için Vercel veya başka bir Python sunucusu kullanılmalıdır.
 
 ## Çalıştırma
 

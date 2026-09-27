@@ -965,6 +965,7 @@ let shuffle = false, repeatMode = 'none';
 let tracksCache = [];
 let lastRender = null;
 let LIB = null;
+let discoveryItems = [];
 
 const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -982,7 +983,7 @@ async function openDiscovery(language='all', query='') {
     const data = await r.json();
     renderDiscovery(data.items || [], data.language);
   } catch (e) {
-    // GitHub Pages statik çalıştığı için Flask API yoktur; Apple/iTunes doğrudan yedek kaynaktır.
+    // GitHub Pages statik çalıştığı için Flask API yoktur; Deezer API doğrudan yedek kaynaktır.
     try { renderDiscovery(await clientDiscovery(language, query), language); }
     catch (fallbackError) { el.innerHTML = '<div class="empty">Keşif kaynaklarına şu anda ulaşılamıyor.</div>'; }
   }
@@ -991,44 +992,41 @@ async function clientDiscovery(language='all', query='') {
   const terms = query ? [query] : language === 'kurtce' ? ['Kürtçe müzik', 'Kurmancî music', 'Zazakî müzik'] : language === 'turkce' ? ['Türkçe müzik', 'Türk halk müziği', 'Türkçe pop'] : ['Türkçe müzik', 'Kürtçe müzik'];
   const results = [];
   for (const term of terms) {
-    const url = 'https://itunes.apple.com/search?media=music&entity=song&country=TR&limit=10&lang=tr_tr&term=' + encodeURIComponent(term);
+    const url = 'https://api.deezer.com/search?limit=12&q=' + encodeURIComponent(term);
     const r = await fetch(url);
     if (!r.ok) continue;
     const data = await r.json();
-    for (const item of (data.results || [])) {
-      results.push({ source:'Apple Music', query:term, title:item.trackName || '', artist:item.artistName || '', album:item.collectionName || '', artwork:(item.artworkUrl100 || '').replace('100x100','300x300'), url:item.trackViewUrl || item.collectionViewUrl || '', genre:item.primaryGenreName || '', release_date:(item.releaseDate || '').slice(0,10) });
+    for (const item of (data.data || [])) {
+      const album = item.album || {}, artist = item.artist || {};
+      results.push({ source:'Deezer', query:term, id:'deezer-' + item.id, deezer_id:item.id, title:item.title || '', artist:artist.name || '', album:album.title || '', artwork:album.cover_medium || album.cover || '', preview:item.preview || '', url:item.link || '', duration:item.duration || 30 });
     }
   }
   const seen = new Set();
   return results.filter(item => { const key=(item.title+'|'+item.artist).toLocaleLowerCase('tr-TR'); if (!item.title || seen.has(key)) return false; seen.add(key); return true; }).slice(0,48);
 }
+
 function renderDiscovery(items, language) {
+  discoveryItems = items;
   const el = $id('results');
   if (!items.length) { el.innerHTML = '<div class="empty">Bu dil için keşif sonucu bulunamadı.</div>'; return; }
   const filters = `<div class="discovery-filters"><button class="discovery-filter active" onclick="openDiscovery('all')">Tümü</button><button class="discovery-filter" onclick="openDiscovery('turkce')">Türkçe</button><button class="discovery-filter" onclick="openDiscovery('kurtce')">Kürtçe</button></div>`;
   const cards = items.map(item => `<article class="discovery-card">
     <img src="${esc(item.artwork || '')}" alt="" loading="lazy" onerror="this.style.opacity=0">
-    <div class="discovery-body"><div class="discovery-title">${esc(item.title)}</div><div class="discovery-sub">${esc(item.artist)}${item.album ? ' · ' + esc(item.album) : ''}</div><div class="discovery-source">${esc(item.source)} · ${esc(item.query || '')}</div>${item.preview ? `<button class="discovery-open" type="button" onclick='playDiscovery(${JSON.stringify(item).replace(/'/g, "&#39;")})'>Uygulamada çal</button>` : '<div class="discovery-source">Önizleme kullanılamıyor</div>'}</div>
+    <div class="discovery-body"><div class="discovery-title">${esc(item.title)}</div><div class="discovery-sub">${esc(item.artist)}${item.album ? ' · ' + esc(item.album) : ''}</div><div class="discovery-source">${esc(item.source)} · ${esc(item.query || '')}</div>${item.preview ? `<button class="discovery-open" type="button" onclick='playDiscovery(${items.indexOf(item)})'>Uygulamada çal</button>` : '<div class="discovery-source">Önizleme kullanılamıyor</div>'}</div>
   </article>`).join('');
   el.innerHTML = filters + '<div class="discovery-grid">' + cards + '</div>';
 }
 
-function playDiscovery(item) {
-  if (!item || !item.preview) { toast('Bu parça için uygulama içi önizleme bulunmuyor.'); return; }
-  queue = [];
-  qIdx = -1;
-  audio.src = item.preview;
-  audio.play().catch(() => toast('Önizleme başlatılamadı.'));
-  $id('mini-cover').src = item.artwork || '';
-  $id('mini-title').textContent = item.title || '—';
-  $id('mini-artist').textContent = item.artist || '';
-  $id('mini-player').classList.add('visible');
-  $id('ps-cover').src = item.artwork || '';
-  $id('ps-title').textContent = item.title || '—';
-  $id('ps-artist').textContent = item.artist || '';
-  document.title = `${item.title || 'Müzik'} — İNADINA TV`;
-  toast(`${item.title} uygulama içinde çalıyor`);
+function playDiscovery(index) {
+  const item = discoveryItems[index];
+  if (!item || !item.preview) { toast('Bu Deezer parçası için önizleme bulunmuyor.'); return; }
+  queue = discoveryItems.filter(x => x.preview).map(tObj);
+  qIdx = Math.max(0, queue.findIndex(x => x.id === item.id));
+  playAt(qIdx);
+  renderQueue();
+  toast(`${item.title} Deezer önizlemesi uygulama içinde çalıyor`);
 }
+
 
 // ── Biblioteca local ────────────────────────────────
 async function loadLibrary(force) {
@@ -1161,7 +1159,7 @@ async function downloadTrack(t) {
 
 // ── Playback ───────────────────────────────────────
 function tObj(t) {
-  return { id: t.id, title: t.title || '—', artist: t.artist || '', album: t.album || '', duration: t.duration || 0 };
+  return { id: t.id, title: t.title || '—', artist: t.artist || '', album: t.album || '', duration: t.duration || 0, preview: t.preview || '', artwork: t.artwork || '' };
 }
 
 function playFromList(tracks, i) {
@@ -1188,6 +1186,8 @@ const prefetchPool = new Map();
 function prefetchAround(i) {
   [queue[i+1]?.id, queue[i-1]?.id, queue[i+2]?.id].filter(Boolean).forEach(id => {
     if (prefetchPool.has(id)) return;
+    const next = queue.find(t => t.id === id);
+    if (next?.preview) return;
     const a = new Audio();
     a.preload = 'auto'; a.muted = true; a.src = `/api/stream/${id}`;
     try { a.load(); } catch(e) {}
@@ -1202,8 +1202,10 @@ function prefetchAround(i) {
 
 let currentSrcId = null;
 function setAudioSrc(id, autoplay) {
+  const selected = queue.find(t => t.id === id);
+  const src = selected?.preview || `/api/stream/${id}`;
   if (currentSrcId !== id) {
-    audio.src = `/api/stream/${id}`;
+    audio.src = src;
     audio.load();
     currentSrcId = id;
   } else {
@@ -1213,7 +1215,7 @@ function setAudioSrc(id, autoplay) {
 }
 
 function updateUI(t) {
-  const coverSrc = `/api/cover/${t.id}`;
+  const coverSrc = t.preview && t.artwork ? t.artwork : `/api/cover/${t.id}`;
   $id('mini-cover').src = coverSrc;
   $id('mini-title').textContent = t.title;
   $id('mini-artist').textContent = t.artist;
@@ -1244,7 +1246,7 @@ function setMediaSession(t) {
   if (!('mediaSession' in navigator)) return;
   navigator.mediaSession.metadata = new MediaMetadata({
     title: t.title || '', artist: t.artist || '', album: t.album || 'İNADINA TV',
-    artwork: [{ src: `/api/cover/${t.id}`, sizes: '512x512', type: 'image/jpeg' }]
+    artwork: [{ src: t.artwork || `/api/cover/${t.id}`, sizes: '512x512', type: 'image/jpeg' }]
   });
   navigator.mediaSession.playbackState = 'playing';
   const set = (a, h) => { try { navigator.mediaSession.setActionHandler(a, h); } catch(e){} };

@@ -299,7 +299,6 @@ def get_track_or_404(tid):
 
 # ── Identificação via Deezer (busca por texto, sem fingerprint de áudio) ────
 DEEZER_SEARCH_URL = 'https://api.deezer.com/search'
-ITUNES_SEARCH_URL = 'https://itunes.apple.com/search'
 DISCOVERY_CACHE = {}
 DISCOVERY_TERMS = {
     'turkce': ['Türkçe müzik', 'Türk halk müziği', 'Türkçe pop'],
@@ -409,33 +408,6 @@ def deezer_album_extra(deezer_id):
     return {'genre': '', 'date': ''}
 
 
-def itunes_search(query, limit=12):
-    """Apple/iTunes Search API’den metadata alır; ses dosyasını proxy’lemez."""
-    params = urllib.parse.urlencode({
-        'term': query,
-        'media': 'music',
-        'entity': 'song',
-        'country': 'TR',
-        'limit': limit,
-        'lang': 'tr_tr',
-    })
-    data = _http_get_json(f'{ITUNES_SEARCH_URL}?{params}', timeout=8)
-    results = []
-    for item in data.get('results') or []:
-        results.append({
-            'source': 'Apple Music',
-            'title': item.get('trackName') or '',
-            'artist': item.get('artistName') or '',
-            'album': item.get('collectionName') or '',
-            'artwork': (item.get('artworkUrl100') or '').replace('100x100', '300x300'),
-            'url': item.get('trackViewUrl') or item.get('collectionViewUrl') or '',
-            'preview': item.get('previewUrl') or '',
-            'genre': item.get('primaryGenreName') or '',
-            'release_date': (item.get('releaseDate') or '')[:10],
-        })
-    return results
-
-
 def deezer_discovery_search(query, limit=12):
     """Deezer keşif sonuçlarını ortak bir dış-kaynak formatına dönüştürür."""
     data = _http_get_json(f'{DEEZER_SEARCH_URL}?{urllib.parse.urlencode({"q": query, "limit": limit})}', timeout=8)
@@ -458,7 +430,7 @@ def deezer_discovery_search(query, limit=12):
 
 
 def discovery_results(language='all', query=''):
-    """Türkçe/Kürtçe keşfi iki ücretsiz metadata kaynağından birleştirir."""
+    """Türkçe/Kürtçe keşfi Deezer ücretsiz arama API’sinden alır."""
     query = _clean_query_text(query)
     terms = [query] if query else []
     if not terms:
@@ -472,7 +444,7 @@ def discovery_results(language='all', query=''):
         return cached['items']
     items, seen = [], set()
     for term in terms[:4]:
-        for fetcher in (deezer_discovery_search, itunes_search):
+        for fetcher in (deezer_discovery_search,):
             try:
                 for item in fetcher(term, limit=8):
                     key = (norm(item['title']), norm(item['artist']))
@@ -497,7 +469,7 @@ def discover():
     return jsonify({
         'language': language,
         'query': query,
-        'sources': ['Deezer', 'Apple Music'],
+        'sources': ['Deezer'],
         'items': discovery_results(language, query),
     })
 

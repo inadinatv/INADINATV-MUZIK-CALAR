@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.venv/
+config.json
+.meta_cache.json
+.deezer_cache.json
+uploads/
+*.log

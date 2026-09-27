@@ -10,10 +10,10 @@ Türkçe arayüze sahip; Türkçe ve Kürtçe müzik koleksiyonlarını birlikte
 - Gömülü kapak ve şarkı sözü görüntüleme
 - Etiketleri (başlık, sanatçı, albüm, tür, yıl ve sözler) düzenleme
 - Türkçe ve Kürtçe sanatçı, albüm, parça ve klasör adlarında Unicode uyumlu arama
-- Deezer üzerinden Türkçe ve Kürtçe müzik metadata ve kapak arama
+- Deezer ve Apple/iTunes Search API üzerinden Türkçe ve Kürtçe müzik metadata, kapak ve resmi dış bağlantı keşfi
 - Telefon ve masaüstü ekranlarına uyumlu karanlık tasarım
 
-> Telifli müzik dosyaları projeye dahil edilmez. Uygulama, sizin cihazınızdaki/ sunucudaki müzik klasörlerini tarar. Deezer entegrasyonu yalnızca arama ve metadata içindir.
+> Telifli müzik dosyaları projeye dahil edilmez. Uygulama, sizin cihazınızdaki/ sunucudaki müzik klasörlerini tarar. Deezer ve Apple/iTunes entegrasyonları yalnızca arama, metadata, kapak ve resmi dış bağlantı keşfi içindir; ses dosyaları uygulama tarafından indirilip depolanmaz.
 
 ## Kurulum
 

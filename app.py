@@ -308,7 +308,8 @@ DISCOVERY_TERMS = {
 
 
 def _http_get_json(url, timeout=6):
-    req = urllib.request.Request(url, headers={'User-Agent': 'İNADINA-TV-MÜZİK-ÇALAR/1.0'})
+    # HTTP başlıkları ASCII olmalıdır; Türkçe marka adı yalnızca arayüzde kullanılır.
+    req = urllib.request.Request(url, headers={'User-Agent': 'INADINA-TV-MUZIK-CALAR/1.0'})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode('utf-8', errors='ignore'))
 

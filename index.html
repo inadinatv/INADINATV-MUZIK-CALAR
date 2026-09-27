@@ -1619,7 +1619,7 @@ function renderQueue() {
     const d = document.createElement('div');
     d.className = 'qi' + (i === qIdx ? ' now' : '');
     d.innerHTML = `
-      <img src="/api/cover/${t.id}" alt="" onerror="this.style.opacity=0"/>
+      <img src="${t.preview && t.artwork ? esc(t.artwork) : `/api/cover/${t.id}`}" alt="" onerror="this.style.opacity=0"/>
       <div class="qi-info">
         <div class="qi-t">${esc(t.title)}</div>
         <div class="qi-a">${esc(t.artist)}</div>

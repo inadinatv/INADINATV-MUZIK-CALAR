@@ -982,8 +982,25 @@ async function openDiscovery(language='all', query='') {
     const data = await r.json();
     renderDiscovery(data.items || [], data.language);
   } catch (e) {
-    el.innerHTML = '<div class="empty">Keşif kaynaklarına şu anda ulaşılamıyor.</div>';
+    // GitHub Pages statik çalıştığı için Flask API yoktur; Apple/iTunes doğrudan yedek kaynaktır.
+    try { renderDiscovery(await clientDiscovery(language, query), language); }
+    catch (fallbackError) { el.innerHTML = '<div class="empty">Keşif kaynaklarına şu anda ulaşılamıyor.</div>'; }
   }
+}
+async function clientDiscovery(language='all', query='') {
+  const terms = query ? [query] : language === 'kurtce' ? ['Kürtçe müzik', 'Kurmancî music', 'Zazakî müzik'] : language === 'turkce' ? ['Türkçe müzik', 'Türk halk müziği', 'Türkçe pop'] : ['Türkçe müzik', 'Kürtçe müzik'];
+  const results = [];
+  for (const term of terms) {
+    const url = 'https://itunes.apple.com/search?media=music&entity=song&country=TR&limit=10&lang=tr_tr&term=' + encodeURIComponent(term);
+    const r = await fetch(url);
+    if (!r.ok) continue;
+    const data = await r.json();
+    for (const item of (data.results || [])) {
+      results.push({ source:'Apple Music', query:term, title:item.trackName || '', artist:item.artistName || '', album:item.collectionName || '', artwork:(item.artworkUrl100 || '').replace('100x100','300x300'), url:item.trackViewUrl || item.collectionViewUrl || '', genre:item.primaryGenreName || '', release_date:(item.releaseDate || '').slice(0,10) });
+    }
+  }
+  const seen = new Set();
+  return results.filter(item => { const key=(item.title+'|'+item.artist).toLocaleLowerCase('tr-TR'); if (!item.title || seen.has(key)) return false; seen.add(key); return true; }).slice(0,48);
 }
 function renderDiscovery(items, language) {
   const el = $id('results');
@@ -999,8 +1016,14 @@ function renderDiscovery(items, language) {
 // ── Biblioteca local ────────────────────────────────
 async function loadLibrary(force) {
   if (LIB && !force) return LIB;
-  const r = await fetch('/api/library' + (force ? '?rescan=1' : ''));
-  LIB = await r.json();
+  try {
+    const r = await fetch('/api/library' + (force ? '?rescan=1' : ''));
+    if (!r.ok) throw new Error('library-api');
+    LIB = await r.json();
+  } catch (e) {
+    // Statik GitHub Pages sürümünde yerel Flask API bulunmaz.
+    LIB = { tracks: [], library_dirs: [], static: true };
+  }
   return LIB;
 }
 
@@ -1352,7 +1375,7 @@ async function loadChart(type) {
   setTitle('Sua Biblioteca');
   if (!LIB) spin();
   const lib = await loadLibrary();
-  if (!lib.tracks.length) { renderEmptyLibrary(lib); return; }
+  if (!lib.tracks.length) { openDiscovery('all'); return; }
   if (type === 'track')        renderTracks(lib.tracks);
   else if (type === 'album')   renderCards(albumGroups(lib.tracks), 'album');
   else if (type === 'playlist') renderCards(playlistGroups(lib.tracks), 'playlist');

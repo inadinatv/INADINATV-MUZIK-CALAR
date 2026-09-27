@@ -669,6 +669,24 @@ img { pointer-events: auto; -webkit-user-drag: none; user-drag: none; }
 }
 .add-btn:active { background:var(--border); }
 
+
+.discovery-row { display:flex; gap:8px; margin-top:2px; }
+.discovery-btn { flex:1; background:rgba(162,89,255,.12); border:1px solid rgba(192,132,252,.35); border-radius:12px; padding:9px 8px; color:var(--accent2); font-size:12px; font-weight:600; font-family:inherit; cursor:pointer; }
+.discovery-btn:active { background:rgba(162,89,255,.28); }
+.discovery-filters { display:flex; gap:8px; margin-bottom:14px; overflow-x:auto; scrollbar-width:none; }
+.discovery-filters::-webkit-scrollbar { display:none; }
+.discovery-filter { flex-shrink:0; border:1px solid var(--border); background:var(--card); border-radius:999px; padding:7px 12px; color:var(--muted); font-family:inherit; font-size:12px; cursor:pointer; }
+.discovery-filter.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+.discovery-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+.discovery-card { background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
+.discovery-card img { width:100%; aspect-ratio:1; object-fit:cover; background:var(--border); display:block; }
+.discovery-body { padding:9px 10px 11px; }
+.discovery-title { font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.discovery-sub { color:var(--muted); font-size:11px; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.discovery-source { color:var(--accent2); font-size:10px; margin-top:7px; }
+.discovery-open { display:inline-block; color:var(--text); background:var(--accent); border-radius:8px; padding:6px 9px; margin-top:8px; font-size:11px; text-decoration:none; }
+@media (min-width:480px) { .discovery-grid { grid-template-columns:repeat(3,1fr); } }
+
 /* ══ TAG EDITOR (edição via ffmpeg) ═══════════════ */
 .track-item { grid-template-columns: 52px 1fr 32px 34px 34px; }
 .track-edit { background:none;border:none;color:var(--muted);cursor:pointer;padding:6px;border-radius:50%;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;transition:color .15s; }
@@ -759,6 +777,10 @@ img { pointer-events: auto; -webkit-user-drag: none; user-drag: none; }
   <div class="add-row">
     <button class="add-btn" onclick="pickFolderToAdd()">＋ Klasör</button>
     <input type="file" id="folder-picker-input" webkitdirectory directory multiple style="display:none" onchange="onFolderPicked(event)">
+  </div>
+  <div class="discovery-row">
+    <button class="discovery-btn" onclick="openDiscovery('turkce')">Türkçe keşfet</button>
+    <button class="discovery-btn" onclick="openDiscovery('kurtce')">Kürtçe keşfet</button>
   </div>
 </div>
 
@@ -947,6 +969,32 @@ let LIB = null;
 const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const $id = id => document.getElementById(id);
+
+// ── Türkçe/Kürtçe dış kaynak keşfi ─────────────────
+async function openDiscovery(language='all', query='') {
+  setTitle(language === 'kurtce' ? 'Kürtçe keşif' : language === 'turkce' ? 'Türkçe keşif' : 'Türkçe ve Kürtçe keşif');
+  const el = $id('results');
+  el.innerHTML = '<div class="spinner"></div>';
+  try {
+    const url = '/api/discover?language=' + encodeURIComponent(language) + (query ? '&q=' + encodeURIComponent(query) : '');
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('discovery');
+    const data = await r.json();
+    renderDiscovery(data.items || [], data.language);
+  } catch (e) {
+    el.innerHTML = '<div class="empty">Keşif kaynaklarına şu anda ulaşılamıyor.</div>';
+  }
+}
+function renderDiscovery(items, language) {
+  const el = $id('results');
+  if (!items.length) { el.innerHTML = '<div class="empty">Bu dil için keşif sonucu bulunamadı.</div>'; return; }
+  const filters = `<div class="discovery-filters"><button class="discovery-filter active" onclick="openDiscovery('all')">Tümü</button><button class="discovery-filter" onclick="openDiscovery('turkce')">Türkçe</button><button class="discovery-filter" onclick="openDiscovery('kurtce')">Kürtçe</button></div>`;
+  const cards = items.map(item => `<article class="discovery-card">
+    <img src="${esc(item.artwork || '')}" alt="" loading="lazy" onerror="this.style.opacity=0">
+    <div class="discovery-body"><div class="discovery-title">${esc(item.title)}</div><div class="discovery-sub">${esc(item.artist)}${item.album ? ' · ' + esc(item.album) : ''}</div><div class="discovery-source">${esc(item.source)} · ${esc(item.query || '')}</div>${item.url ? `<a class="discovery-open" href="${esc(item.url)}" target="_blank" rel="noopener">Kaynağı aç</a>` : ''}</div>
+  </article>`).join('');
+  el.innerHTML = filters + '<div class="discovery-grid">' + cards + '</div>';
+}
 
 // ── Biblioteca local ────────────────────────────────
 async function loadLibrary(force) {

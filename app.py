@@ -299,6 +299,12 @@ def get_track_or_404(tid):
 
 # ── Identificação via Deezer (busca por texto, sem fingerprint de áudio) ────
 DEEZER_SEARCH_URL = 'https://api.deezer.com/search'
+ITUNES_SEARCH_URL = 'https://itunes.apple.com/search'
+DISCOVERY_CACHE = {}
+DISCOVERY_TERMS = {
+    'turkce': ['Türkçe müzik', 'Türk halk müziği', 'Türkçe pop'],
+    'kurtce': ['Kürtçe müzik', 'Kurmancî music', 'Zazakî müzik'],
+}
 
 
 def _http_get_json(url, timeout=6):
@@ -400,6 +406,99 @@ def deezer_album_extra(deezer_id):
     except Exception:
         pass
     return {'genre': '', 'date': ''}
+
+
+def itunes_search(query, limit=12):
+    """Apple/iTunes Search API’den metadata alır; ses dosyasını proxy’lemez."""
+    params = urllib.parse.urlencode({
+        'term': query,
+        'media': 'music',
+        'entity': 'song',
+        'country': 'TR',
+        'limit': limit,
+        'lang': 'tr_tr',
+    })
+    data = _http_get_json(f'{ITUNES_SEARCH_URL}?{params}', timeout=8)
+    results = []
+    for item in data.get('results') or []:
+        results.append({
+            'source': 'Apple Music',
+            'title': item.get('trackName') or '',
+            'artist': item.get('artistName') or '',
+            'album': item.get('collectionName') or '',
+            'artwork': (item.get('artworkUrl100') or '').replace('100x100', '300x300'),
+            'url': item.get('trackViewUrl') or item.get('collectionViewUrl') or '',
+            'preview': item.get('previewUrl') or '',
+            'genre': item.get('primaryGenreName') or '',
+            'release_date': (item.get('releaseDate') or '')[:10],
+        })
+    return results
+
+
+def deezer_discovery_search(query, limit=12):
+    """Deezer keşif sonuçlarını ortak bir dış-kaynak formatına dönüştürür."""
+    data = _http_get_json(f'{DEEZER_SEARCH_URL}?{urllib.parse.urlencode({"q": query, "limit": limit})}', timeout=8)
+    results = []
+    for item in data.get('data') or []:
+        album = item.get('album') or {}
+        artist = item.get('artist') or {}
+        results.append({
+            'source': 'Deezer',
+            'title': item.get('title') or '',
+            'artist': artist.get('name') or '',
+            'album': album.get('title') or '',
+            'artwork': album.get('cover_medium') or album.get('cover') or '',
+            'url': item.get('link') or '',
+            'preview': item.get('preview') or '',
+            'genre': '',
+            'release_date': '',
+        })
+    return results
+
+
+def discovery_results(language='all', query=''):
+    """Türkçe/Kürtçe keşfi iki ücretsiz metadata kaynağından birleştirir."""
+    query = _clean_query_text(query)
+    terms = [query] if query else []
+    if not terms:
+        if language in ('turkce', 'kurtce'):
+            terms = DISCOVERY_TERMS[language]
+        else:
+            terms = DISCOVERY_TERMS['turkce'][:2] + DISCOVERY_TERMS['kurtce'][:2]
+    cache_key = f'{language}:{"|".join(terms)}'
+    cached = DISCOVERY_CACHE.get(cache_key)
+    if cached and cached['expires'] > __import__('time').time():
+        return cached['items']
+    items, seen = [], set()
+    for term in terms[:4]:
+        for fetcher in (deezer_discovery_search, itunes_search):
+            try:
+                for item in fetcher(term, limit=8):
+                    key = (norm(item['title']), norm(item['artist']))
+                    if key == ('', '') or key in seen:
+                        continue
+                    seen.add(key)
+                    item['query'] = term
+                    items.append(item)
+            except Exception:
+                continue
+    items = items[:48]
+    DISCOVERY_CACHE[cache_key] = {'expires': __import__('time').time() + 600, 'items': items}
+    return items
+
+
+@app.route('/api/discover')
+def discover():
+    language = request.args.get('language', 'all').lower()
+    if language not in ('all', 'turkce', 'kurtce'):
+        language = 'all'
+    query = request.args.get('q', '')[:120]
+    return jsonify({
+        'language': language,
+        'query': query,
+        'sources': ['Deezer', 'Apple Music'],
+        'items': discovery_results(language, query),
+    })
 
 
 @app.route('/')

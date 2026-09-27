@@ -1008,9 +1008,26 @@ function renderDiscovery(items, language) {
   const filters = `<div class="discovery-filters"><button class="discovery-filter active" onclick="openDiscovery('all')">Tümü</button><button class="discovery-filter" onclick="openDiscovery('turkce')">Türkçe</button><button class="discovery-filter" onclick="openDiscovery('kurtce')">Kürtçe</button></div>`;
   const cards = items.map(item => `<article class="discovery-card">
     <img src="${esc(item.artwork || '')}" alt="" loading="lazy" onerror="this.style.opacity=0">
-    <div class="discovery-body"><div class="discovery-title">${esc(item.title)}</div><div class="discovery-sub">${esc(item.artist)}${item.album ? ' · ' + esc(item.album) : ''}</div><div class="discovery-source">${esc(item.source)} · ${esc(item.query || '')}</div>${item.url ? `<a class="discovery-open" href="${esc(item.url)}" target="_blank" rel="noopener">Kaynağı aç</a>` : ''}</div>
+    <div class="discovery-body"><div class="discovery-title">${esc(item.title)}</div><div class="discovery-sub">${esc(item.artist)}${item.album ? ' · ' + esc(item.album) : ''}</div><div class="discovery-source">${esc(item.source)} · ${esc(item.query || '')}</div>${item.preview ? `<button class="discovery-open" type="button" onclick='playDiscovery(${JSON.stringify(item).replace(/'/g, "&#39;")})'>Uygulamada çal</button>` : '<div class="discovery-source">Önizleme kullanılamıyor</div>'}</div>
   </article>`).join('');
   el.innerHTML = filters + '<div class="discovery-grid">' + cards + '</div>';
+}
+
+function playDiscovery(item) {
+  if (!item || !item.preview) { toast('Bu parça için uygulama içi önizleme bulunmuyor.'); return; }
+  queue = [];
+  qIdx = -1;
+  audio.src = item.preview;
+  audio.play().catch(() => toast('Önizleme başlatılamadı.'));
+  $id('mini-cover').src = item.artwork || '';
+  $id('mini-title').textContent = item.title || '—';
+  $id('mini-artist').textContent = item.artist || '';
+  $id('mini-player').classList.add('visible');
+  $id('ps-cover').src = item.artwork || '';
+  $id('ps-title').textContent = item.title || '—';
+  $id('ps-artist').textContent = item.artist || '';
+  document.title = `${item.title || 'Müzik'} — İNADINA TV`;
+  toast(`${item.title} uygulama içinde çalıyor`);
 }
 
 // ── Biblioteca local ────────────────────────────────
